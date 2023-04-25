@@ -64,7 +64,6 @@ class Graphic @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas?) {
         super.onDraw(canvas)
 
-        log("ondraw")
         // draw X axis
         canvas?.drawLine(
             0.0f,
@@ -85,7 +84,7 @@ class Graphic @JvmOverloads constructor(
 
         val centerX = width / 2
 
-        // draw x dividers from center till the x = 0
+        // draw x dividers from center till x = 0
         var currX = centerX - DIVIDER_SPACE_IN_PX
         while (currX >= 0) {
             canvas?.drawLine(
@@ -98,7 +97,7 @@ class Graphic @JvmOverloads constructor(
             currX -= DIVIDER_SPACE_IN_PX
         }
 
-        // draw x dividers from center till the x = width
+        // draw x dividers from center till x = width
         currX = centerX + DIVIDER_SPACE_IN_PX
         while (currX <= width) {
             canvas?.drawLine(
@@ -113,7 +112,7 @@ class Graphic @JvmOverloads constructor(
 
         val centerY = height / 2
 
-        // draw y dividers from center till the y = 0
+        // draw y dividers from center till y = 0
         var currY = centerY - DIVIDER_SPACE_IN_PX
         while (currY >= 0) {
             canvas?.drawLine(
@@ -126,7 +125,7 @@ class Graphic @JvmOverloads constructor(
             currY -= DIVIDER_SPACE_IN_PX
         }
 
-        // draw y dividers from center till the y = height
+        // draw y dividers from center till y = height
         currY = centerY + DIVIDER_SPACE_IN_PX
         while (currY <= height) {
             canvas?.drawLine(
@@ -139,7 +138,7 @@ class Graphic @JvmOverloads constructor(
             currY += DIVIDER_SPACE_IN_PX
         }
 
-        // divider numbers in range (width/2, 0)
+        // divider numbers in range(width/2, 0)
         var currTextX = centerX - DIVIDER_SPACE_IN_PX
         var currValue = -1
         while (currTextX >= 0) {
@@ -161,7 +160,7 @@ class Graphic @JvmOverloads constructor(
             currValue--
         }
 
-//        // divider numbers in range (width / 2, width)
+        // divider numbers in range(width / 2, width)
         currTextX = centerX + DIVIDER_SPACE_IN_PX
         currValue = 1
         while (currTextX <= width) {
@@ -182,7 +181,7 @@ class Graphic @JvmOverloads constructor(
             currValue++
         }
 
-        // divider numbers form (height/2, 0)
+        // divider numbers in range(height/2, 0)
 
         var currTextY = centerY - DIVIDER_SPACE_IN_PX
         currValue = 1
@@ -218,7 +217,7 @@ class Graphic @JvmOverloads constructor(
             currValue++
         }
 
-        // divider numbers form (height/2, height)
+        // divider numbers in range(height/2, height)
 
         currTextY = centerY + DIVIDER_SPACE_IN_PX
         currValue = -1
@@ -325,16 +324,15 @@ class Graphic @JvmOverloads constructor(
             val realX = width / 2 + (currX * DIVIDER_SPACE_IN_PX)
             val realY = height / 2 - (y * DIVIDER_SPACE_IN_PX)
 
-            // check if parameters is not bound of border
-            log("($x, $y)")
+            // check if parameters is not bound of restrictions
             if (currX < border.minX || currX > border.maxX || y < border.minY || y > border.maxY) {
                 currX += step
                 continue
             }
 
-            if (realX >= width / 2 + 10) { // the first coordinate quarter + 10 offset
+            if (realX >= width / 2 + 10) { // the first coordinate quarter + 10px offset
                 if (realY >= FUNCTION_NAME_BLOCK_Y) {
-                    // if does not intersect the name function area
+                    // if no intersections with the name function area block
                     canvas?.drawPoint(realX, realY, functionPaint)
                 }
             } else {
@@ -362,10 +360,10 @@ class Graphic @JvmOverloads constructor(
         // init for the first time
         if (functionNameY == -1) functionNameY = functionNameHeight
 
-        // Check if fun name can be placed to function name block by X
+        // Check if function name can be placed within function bloc name block by X axis
         val isFitByX = (width - 10) - (functionNameX + functionNameWidth) >= 0
 
-        // Check if fun name can be placed to function name block by Y
+        // Check if function name can be placed within function bloc name block by Y axis
         val isFitByY = FUNCTION_NAME_BLOCK_Y - (functionNameY + functionNameHeight) >= 0
         if (isFitByX && isFitByY) {
             canvas?.drawText(

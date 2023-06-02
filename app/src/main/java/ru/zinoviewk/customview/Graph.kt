@@ -1,6 +1,6 @@
 package ru.zinoviewk.customview
 
-import android.app.AliasActivity
+import android.app.Activity
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -9,9 +9,16 @@ import android.graphics.Rect
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import kotlin.math.abs
 import kotlin.random.Random
 
-private const val GRAPH_BOTTOM_MARGIN = 50
+private const val GRAPH_START_MARGIN = 30
+private const val GRAPH_END_MARGIN = 30
+private const val GRAPH_TOP_MARGIN = 10
+private const val GRAPH_BOTTOM_MARGIN = 30
+
+private const val GRAPH_NODE_RADIUS = 10
+private const val MARGIN_BETWEEN_NODES = 30
 
 class Graph @JvmOverloads constructor(
     context: Context,
@@ -22,6 +29,11 @@ class Graph @JvmOverloads constructor(
     private var graph = mapOf<String, List<GraphNode>>()
     private val viewGraph = mutableMapOf<String, MutableList<ViewGraphNode>>()
     private val nodeIdToViewGraphNode = mutableMapOf<String, ViewGraphNode>()
+
+    /** K is pair: first is an id of first node, second is an id of the second one
+    V is weigh between these nodes
+     */
+    private val connectedNodesToWeigh = mutableMapOf<Pair<String, String>, Int>()
 
     private val nodePaint = Paint().apply {
         this.color = Color.RED
@@ -51,7 +63,14 @@ class Graph @JvmOverloads constructor(
         this.flags = Paint.ANTI_ALIAS_FLAG
     }
 
+    private val graphDividerPaint = Paint().apply {
+        this.color = Color.WHITE
+        this.flags = Paint.ANTI_ALIAS_FLAG
+    }
+
     private val nodeIdTextBounds = Rect()
+
+    private val windowRect = Rect()
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val desiredWidth = 200
@@ -74,9 +93,6 @@ class Graph @JvmOverloads constructor(
             }
         }
 
-        //Measure Height
-
-        //Measure Height
         val height: Int = when (heightMode) {
             MeasureSpec.EXACTLY -> {
                 heightSize
@@ -89,18 +105,18 @@ class Graph @JvmOverloads constructor(
             }
         }
 
-        //MUST CALL THIS
-
-        //MUST CALL THIS
         setMeasuredDimension(width, height)
     }
 
     override fun onDraw(canvas: Canvas?) {
         super.onDraw(canvas)
 
-        canvas?.let(::drawGraphNodes)
-        canvas?.let(::drawAdjacency)
-        canvas?.let(::drawShortestPathSteps)
+        canvas?.let { canvas ->
+            drawGraphNodes(canvas)
+            drawAdjacency(canvas)
+            drawShortestPathSteps(canvas)
+            drawGraphDivider(canvas)
+        }
     }
 
     private var isDragging = false
@@ -115,7 +131,7 @@ class Graph @JvmOverloads constructor(
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
-                if (event.x >= 0 && event.x <= width && event.y >= 0 && event.y <= height - GRAPH_BOTTOM_MARGIN) {
+                if (checkIfDraggingWithInScreen(event.x, event.y)) {
                     if (isDragging) {
                         if (draggingViewGraphNode == null)
                             draggingViewGraphNode = getDraggingGraphNodeId(event.x, event.y)
@@ -135,6 +151,14 @@ class Graph @JvmOverloads constructor(
             }
         }
         return super.onTouchEvent(event)
+    }
+
+    private fun checkIfDraggingWithInScreen(x: Float, y: Float): Boolean {
+        val statusBarHeight = windowRect.top
+        return x - GRAPH_NODE_RADIUS >= 0
+                && x + GRAPH_NODE_RADIUS <= width
+                && y >= statusBarHeight + GRAPH_TOP_MARGIN
+                && y + GRAPH_NODE_RADIUS <= height - GRAPH_BOTTOM_MARGIN
     }
 
     private fun getDraggingGraphNodeId(x: Float, y: Float): ViewGraphNode {
@@ -158,7 +182,6 @@ class Graph @JvmOverloads constructor(
 
 
     private fun drawGraphNodes(canvas: Canvas) {
-        //val nodes = viewGraph.entries.map { it.key }
         nodeIdToViewGraphNode.forEach { entry ->
             val node = entry.value
             nodeIdPaint.getTextBounds(node.id, 0, node.id.length, nodeIdTextBounds)
@@ -174,7 +197,6 @@ class Graph @JvmOverloads constructor(
     }
 
     private fun drawAdjacency(canvas: Canvas) {
-        //val nodes = viewGraph.entries.map { it.key }
         nodeIdToViewGraphNode.forEach { entry ->
             val node = entry.value
             val neighbours = viewGraph[node.id]
@@ -199,12 +221,11 @@ class Graph @JvmOverloads constructor(
         node1: ViewGraphNode,
         node2: ViewGraphNode
     ) {
-
         val midX = (node1.x + node2.x) / 2
         val midY = (node1.y + node2.y) / 2
 
         canvas.drawText(
-            node2.weigh.toString(),
+            connectedNodesToWeigh[node1.id to node2.id].toString(),
             midX,
             midY,
             connectionWeighPaint,
@@ -232,6 +253,16 @@ class Graph @JvmOverloads constructor(
         drawStepsAsText(canvas)
     }
 
+    private fun drawGraphDivider(canvas: Canvas) {
+        canvas.drawLine(
+            0f,
+            (height - GRAPH_BOTTOM_MARGIN).toFloat(),
+            width.toFloat(),
+            (height - GRAPH_BOTTOM_MARGIN).toFloat(),
+            graphDividerPaint
+        )
+    }
+
     private fun drawStepsAsText(canvas: Canvas) {
         val currShortestStep = stepsToFindShortestPath[currStepToFindShortestPath]
         val (steps, weigh) = currShortestStep.currPath to currShortestStep.weigh
@@ -250,14 +281,14 @@ class Graph @JvmOverloads constructor(
             val currNodeId = steps[i]
             val nextNodeId = steps[i + 1]
 
-            if(!drawFirstVertex) {
+            if (!drawFirstVertex) {
                 drawFirstVertex = true
                 pathAsString.append("$currNodeId -> $nextNodeId")
             } else {
                 pathAsString.append(" -> $nextNodeId")
             }
         }
-        if(currShortestStep.currPath.size > 1) pathAsString.append(" = $weigh")
+        if (currShortestStep.currPath.size > 1) pathAsString.append(" = $weigh")
 
         val text = pathAsString.toString()
         canvas.drawText(
@@ -285,15 +316,25 @@ class Graph @JvmOverloads constructor(
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
+        measureStatusBar()
         setUpGraph()
     }
 
+    private fun measureStatusBar() {
+        if (context is Activity) {
+            val window = (context as Activity?)?.window
+            window?.decorView?.getWindowVisibleDisplayFrame(windowRect)
+        }
+    }
+
     private fun setUpGraph() {
+        val statusBarHeight = windowRect.top
         val nodes = graph.entries.iterator()
         while (nodes.hasNext()) {
-            val x = Random.nextInt(1, 200).toFloat()
-            val y = Random.nextInt(1, 200).toFloat()
-            val radius = 10.toFloat()
+            val x = Random.nextInt(GRAPH_START_MARGIN, width - GRAPH_END_MARGIN).toFloat()
+            val y = Random.nextInt(statusBarHeight + GRAPH_TOP_MARGIN, height - GRAPH_BOTTOM_MARGIN)
+                .toFloat()
+            val radius = GRAPH_NODE_RADIUS.toFloat()
 
             if (nodeCanBeAdded(x.toInt(), y.toInt(), radius.toInt())) {
                 val nodeId = nodes.next().key
@@ -312,7 +353,6 @@ class Graph @JvmOverloads constructor(
             val neighbours = graph[nodeId]!!
             neighbours.forEach { neighbourNode ->
 
-                // val viewGraphNode = nodeIdToViewGraphNode[nodeId]
                 val neighbourGraphNode =
                     nodeIdToViewGraphNode[neighbourNode.id]!!.also {
                         it.weigh = neighbourNode.weigh
@@ -333,7 +373,9 @@ class Graph @JvmOverloads constructor(
             val sr = node1Radius + node2Radius
 
             val sum = dx * dx + dy * dy
-            if (sum >= dr * dr && sum <= sr * sr) return false
+            if (
+                sum >= dr * dr && sum <= sr * sr || checkIfEnoughSpaceBetweenNode(dx, dy)
+            ) return false
         }
 
         coordinatesOfAddedNodes.add(
@@ -344,6 +386,11 @@ class Graph @JvmOverloads constructor(
         return true
     }
 
+    private fun checkIfEnoughSpaceBetweenNode(dx: Int, dy: Int): Boolean {
+        return abs(dx) < GRAPH_NODE_RADIUS + MARGIN_BETWEEN_NODES
+                && abs(dy) < GRAPH_NODE_RADIUS + MARGIN_BETWEEN_NODES
+    }
+
 
     private fun onTheScreen(nodeX: Int, nodeY: Int, nodeRadius: Int): Boolean {
         return nodeX - nodeRadius >= 0 && nodeX + nodeRadius < width
@@ -352,6 +399,18 @@ class Graph @JvmOverloads constructor(
 
     fun setGraph(graph: Map<String, List<GraphNode>>) {
         this.graph = graph
+        initConnectionsWeigh()
+    }
+
+    private fun initConnectionsWeigh() {
+        val nodes = graph.entries.map { it.key }
+        nodes.forEach { nodeId ->
+            val neighbours = graph[nodeId]
+            neighbours?.forEach {
+                val neighbourId = it.id
+                connectedNodesToWeigh[nodeId to neighbourId] = it.weigh
+            }
+        }
     }
 
     private var minWeight = Int.MAX_VALUE
@@ -383,8 +442,6 @@ class Graph @JvmOverloads constructor(
                 currWeigh
             )
         )
-
-        log(stepsToFindShortestPath.toString())
 
         if (vertex.isEmpty()) {
             if (minWeight > currWeigh) {

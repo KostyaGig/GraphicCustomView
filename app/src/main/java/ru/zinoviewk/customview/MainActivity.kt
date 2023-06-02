@@ -30,6 +30,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.prev_btn).setOnClickListener {
             graphView.drawPrevStepToFindShortestPath()
         }
+
+        window
     }
 
 
